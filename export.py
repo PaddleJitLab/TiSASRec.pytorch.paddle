@@ -94,7 +94,6 @@ for epoch in range(epoch_start_idx, args.num_epochs + 1):
             neg)
         time_seq, time_matrix = np.array(time_seq), np.array(time_matrix)
         pos_logits, neg_logits = model(u, seq, time_matrix, pos, neg)
-        breakpoint()
         try:
             input_spec = list(paddle.static.InputSpec.from_tensor(paddle.to_tensor(t)) for t in (u, seq, time_matrix, pos, neg))
             paddle.jit.save(model, input_spec=input_spec, path="./model")
