@@ -88,7 +88,6 @@ class TimeAwareMultiHeadAttention(paddle.nn.Layer):
         attn_mask = attn_mask.unsqueeze(axis=0).expand(shape=[attn_weights.
             shape[0], -1, -1])
         paddings = paddle.ones(shape=attn_weights.shape) * (-2 ** 32 + 1)
-        paddings = paddings.to(self.dev)
         attn_weights = paddle.where(condition=time_mask, x=paddings, y=
             attn_weights)
         attn_weights = paddle.where(condition=attn_mask, x=paddings, y=
@@ -147,27 +146,23 @@ class TiSASRec(paddle.nn.Layer):
                 dropout_rate)
             self.forward_layers.append(new_fwd_layer)
 
-    def seq2feats(self, user_ids, log_seqs, time_matrices):
-        seqs = self.item_emb(paddle.to_tensor(data=log_seqs, dtype='int64')
-            .to(self.dev))
+    def seq2feats(self, log_seqs, time_matrices):
+        seqs = self.item_emb(paddle.to_tensor(data=log_seqs, dtype='int64'))
         seqs *= self.item_emb._embedding_dim ** 0.5
         seqs = self.item_emb_dropout(seqs)
         positions = np.tile(np.array(range(log_seqs.shape[1])), [log_seqs.
             shape[0], 1])
-        positions = paddle.to_tensor(data=positions, dtype='int64').to(self.dev
-            )
+        positions = paddle.to_tensor(data=positions, dtype='int64')
         abs_pos_K = self.abs_pos_K_emb(positions)
         abs_pos_V = self.abs_pos_V_emb(positions)
         abs_pos_K = self.abs_pos_K_emb_dropout(abs_pos_K)
         abs_pos_V = self.abs_pos_V_emb_dropout(abs_pos_V)
-        time_matrices = paddle.to_tensor(data=time_matrices, dtype='int64').to(
-            self.dev)
+        time_matrices = paddle.to_tensor(data=time_matrices, dtype='int64')
         time_matrix_K = self.time_matrix_K_emb(time_matrices)
         time_matrix_V = self.time_matrix_V_emb(time_matrices)
         time_matrix_K = self.time_matrix_K_dropout(time_matrix_K)
         time_matrix_V = self.time_matrix_V_dropout(time_matrix_V)
-        timeline_mask = paddle.to_tensor(data=log_seqs == 0, dtype='bool').to(
-            self.dev)
+        timeline_mask = paddle.to_tensor(data=log_seqs == 0, dtype='bool')
         seqs *= ~timeline_mask.unsqueeze(axis=-1)
         tl = seqs.shape[1]
         attention_mask = ~paddle.tril(x=paddle.ones(shape=(tl, tl), dtype=
@@ -184,21 +179,17 @@ class TiSASRec(paddle.nn.Layer):
         log_feats = self.last_layernorm(seqs)
         return log_feats
 
-    def forward(self, user_ids, log_seqs, time_matrices, pos_seqs, neg_seqs):
-        log_feats = self.seq2feats(user_ids, log_seqs, time_matrices)
-        pos_embs = self.item_emb(paddle.to_tensor(data=pos_seqs, dtype=
-            'int64').to(self.dev))
-        neg_embs = self.item_emb(paddle.to_tensor(data=neg_seqs, dtype=
-            'int64').to(self.dev))
+    def forward(self, log_seqs, time_matrices, pos_seqs, neg_seqs):
+        log_feats = self.seq2feats(log_seqs, time_matrices)
+        pos_embs = self.item_emb(paddle.to_tensor(data=pos_seqs, dtype='int64'))
+        neg_embs = self.item_emb(paddle.to_tensor(data=neg_seqs, dtype='int64'))
         pos_logits = (log_feats * pos_embs).sum(axis=-1)
         neg_logits = (log_feats * neg_embs).sum(axis=-1)
         return pos_logits, neg_logits
 
-    def predict(self, user_ids, log_seqs, time_matrices, item_indices):
-        log_feats = self.seq2feats(user_ids, log_seqs, time_matrices)
+    def predict(self, log_seqs, time_matrices, item_indices):
+        log_feats = self.seq2feats(log_seqs, time_matrices)
         final_feat = log_feats[:, (-1), :]
-        item_embs = self.item_emb(paddle.to_tensor(data=item_indices, dtype
-            ='int64').to(self.dev))
-        logits = item_embs.matmul(y=final_feat.unsqueeze(axis=-1)).squeeze(axis
-            =-1)
+        item_embs = self.item_emb(paddle.to_tensor(data=item_indices, dtype='int64'))
+        logits = item_embs.matmul(y=final_feat.unsqueeze(axis=-1)).squeeze(axis=-1)
         return logits

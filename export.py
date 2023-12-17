@@ -93,9 +93,9 @@ for epoch in range(epoch_start_idx, args.num_epochs + 1):
         u, seq, pos, neg = np.array(u), np.array(seq), np.array(pos), np.array(
             neg)
         time_seq, time_matrix = np.array(time_seq), np.array(time_matrix)
-        pos_logits, neg_logits = model(u, seq, time_matrix, pos, neg)
+        pos_logits, neg_logits = model(seq, time_matrix, pos, neg)
         try:
-            input_spec = list(paddle.static.InputSpec.from_tensor(paddle.to_tensor(t)) for t in (u, seq, time_matrix, pos, neg))
+            input_spec = list(paddle.static.InputSpec.from_tensor(paddle.to_tensor(t)) for t in (seq, time_matrix, pos, neg))
             paddle.jit.save(model, input_spec=input_spec, path="./model")
             print('[JIT] paddle.jit.save successed.')
             exit(0)
